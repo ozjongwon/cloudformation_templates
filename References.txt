@@ -1,0 +1,4 @@
+* Bastion host
+https://aws.amazon.com/blogs/security/how-to-record-ssh-sessions-established-through-a-bastion-host/#more-1049
+
+- create keypairs for 'bastion' and 'sshuser'

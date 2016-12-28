@@ -1,0 +1,876 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Provision the required resources for the blog post example 'How to Record SSH Sessions Established Through a Bastion Host'. Wait for the creation to complete before testing.",
+  "Parameters": {
+    "BastionHostKeyPair": {
+      "Description": "Select the key pair to use to launch the bastion host",
+      "Type": "AWS::EC2::KeyPair::KeyName"
+    },
+    "LinuxInstanceKeyPair": {
+      "Description": "Select the key pair to use to launch the Linux instance in the private subnet",
+      "Type": "AWS::EC2::KeyPair::KeyName"
+    }
+  },
+  "Mappings": {
+    "Region": {
+      "us-east-1": {
+        "HVM64": "ami-f5f41398"
+      },
+      "us-west-2": {
+        "HVM64": "ami-d0f506b0"
+      },
+      "us-west-1": {
+        "HVM64": "ami-6e84fa0e"
+      },
+      "eu-west-1": {
+        "HVM64": "ami-b0ac25c3"
+      },
+      "eu-central-1": {
+        "HVM64": "ami-d3c022bc"
+      },
+      "ap-southeast-1": {
+        "HVM64": "ami-1ddc0b7e"
+      },
+      "ap-northeast-2": {
+        "HVM64": "ami-cf32faa1"
+      },
+      "ap-northeast-1": {
+        "HVM64": "ami-29160d47"
+      },
+      "ap-southeast-2": {
+        "HVM64": "ami-28cff44b",
+        "LTS1604": "ami-ae6259cd"
+      },
+      "sa-east-1": {
+        "HVM64": "ami-fb890097"
+      }
+    }
+  },
+  "Resources": {
+    "VPC": {
+      "Type": "AWS::EC2::VPC",
+      "Properties": {
+        "CidrBlock": "10.0.0.0/24"
+      },
+      "Metadata": {
+        "AWS::CloudFormation::Designer": {
+          "id": "56883a1b-842d-414b-b3dc-d62b9cce5f13"
+        }
+      }
+    },
+    "IGW": {
+      "Type": "AWS::EC2::InternetGateway",
+      "Metadata": {
+        "AWS::CloudFormation::Designer": {
+          "id": "1648c0ed-4ad3-43ab-a79d-2daacec007dd"
+        }
+      }
+    },
+    "IGWAttachment": {
+      "Type": "AWS::EC2::VPCGatewayAttachment",
+      "Properties": {
+        "InternetGatewayId": {
+          "Ref": "IGW"
+        },
+        "VpcId": {
+          "Ref": "VPC"
+        }
+      },
+      "Metadata": {
+        "AWS::CloudFormation::Designer": {
+          "id": "a62241d6-ef0b-4920-94e7-750418ebf25e"
+        }
+      }
+    },
+    "PublicSubnet": {
+      "Type": "AWS::EC2::Subnet",
+      "Properties": {
+        "CidrBlock": "10.0.0.0/25",
+        "MapPublicIpOnLaunch": "true",
+        "VpcId": {
+          "Ref": "VPC"
+        }
+      },
+      "Metadata": {
+        "AWS::CloudFormation::Designer": {
+          "id": "ba64b472-f58f-43dd-9c19-d039393e4ca6"
+        }
+      }
+    },
+    "PublicSubnetRouteTable": {
+      "Type": "AWS::EC2::RouteTable",
+      "Properties": {
+        "VpcId": {
+          "Ref": "VPC"
+        }
+      },
+      "Metadata": {
+        "AWS::CloudFormation::Designer": {
+          "id": "e18e6f98-ce31-4a98-b88b-12ed274c10df"
+        }
+      }
+    },
+    "PublicSubnetEgressRoute": {
+      "Type": "AWS::EC2::Route",
+      "Properties": {
+        "DestinationCidrBlock": "0.0.0.0/0",
+        "GatewayId": {
+          "Ref": "IGW"
+        },
+        "RouteTableId": {
+          "Ref": "PublicSubnetRouteTable"
+        }
+      },
+      "Metadata": {
+        "AWS::CloudFormation::Designer": {
+          "id": "4b8a0a8b-7a53-4048-86e3-de09e94a61fe"
+        }
+      }
+    },
+    "PublicSubnetEgressRouteTableAssociation": {
+      "Type": "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties": {
+        "RouteTableId": {
+          "Ref": "PublicSubnetRouteTable"
+        },
+        "SubnetId": {
+          "Ref": "PublicSubnet"
+        }
+      },
+      "Metadata": {
+        "AWS::CloudFormation::Designer": {
+          "id": "7cf34123-5c36-424b-83c1-2bb10af62eb9"
+        }
+      }
+    },
+    "PrivateSubnet": {
+      "Type": "AWS::EC2::Subnet",
+      "Properties": {
+        "CidrBlock": "10.0.0.128/25",
+        "VpcId": {
+          "Ref": "VPC"
+        }
+      },
+      "Metadata": {
+        "AWS::CloudFormation::Designer": {
+          "id": "d79b67f7-8e38-410d-8cc6-63e36b8872d9"
+        }
+      }
+    },
+    "Bucket": {
+      "Type": "AWS::S3::Bucket",
+      "Properties": {
+        "AccessControl": "BucketOwnerFullControl"
+      },
+      "Metadata": {
+        "AWS::CloudFormation::Designer": {
+          "id": "6139dfb7-8a0d-40e3-a8b4-d044e895c26f"
+        }
+      }
+    },
+    "BastionHostSecurityGroup": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties": {
+        "GroupDescription": "Enable SSH access to the bastion host from the Internet via port 22",
+        "VpcId": {
+          "Ref": "VPC"
+        },
+        "SecurityGroupIngress": [
+          {
+            "IpProtocol": "tcp",
+            "FromPort": "22",
+            "ToPort": "22",
+            "CidrIp": "0.0.0.0/0"
+          }
+        ]
+      },
+      "Metadata": {
+        "AWS::CloudFormation::Designer": {
+          "id": "d0d034a6-2fab-4e2f-8885-87993ac5ce66"
+        }
+      }
+    },
+    "BastionHostRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": [
+                  "ec2.amazonaws.com"
+                ]
+              },
+              "Action": [
+                "sts:AssumeRole"
+              ]
+            }
+          ]
+        },
+        "Path": "/",
+        "Policies": [
+          {
+            "PolicyName": "bastion-policy",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "s3:PutObject",
+                    "s3:PutObjectAcl"
+                  ],
+                  "Resource": {
+                    "Fn::Join": [
+                      "",
+                      [
+                        "arn:aws:s3:::",
+                        {
+                          "Ref": "Bucket"
+                        },
+                        "/logs/*"
+                      ]
+                    ]
+                  }
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": "s3:GetObject",
+                  "Resource": {
+                    "Fn::Join": [
+                      "",
+                      [
+                        "arn:aws:s3:::",
+                        {
+                          "Ref": "Bucket"
+                        },
+                        "/public-keys/*"
+                      ]
+                    ]
+                  }
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "s3:ListBucket"
+                  ],
+                  "Resource": {
+                    "Fn::Join": [
+                      "",
+                      [
+                        "arn:aws:s3:::",
+                        {
+                          "Ref": "Bucket"
+                        }
+                      ]
+                    ]
+                  },
+                  "Condition": {
+                    "StringEquals": {
+                      "s3:prefix": "public-keys/"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "Metadata": {
+        "AWS::CloudFormation::Designer": {
+          "id": "1b664064-e2d9-42a5-a4a0-586e0f16cbc0"
+        }
+      }
+    },
+    "BastionHostProfile": {
+      "Type": "AWS::IAM::InstanceProfile",
+      "Properties": {
+        "Roles": [
+          {
+            "Ref": "BastionHostRole"
+          }
+        ],
+        "Path": "/"
+      },
+      "Metadata": {
+        "AWS::CloudFormation::Designer": {
+          "id": "23c8ebee-8bd2-4850-9360-9c7abc92057e"
+        }
+      }
+    },
+    "BastionHostInstance": {
+      "Type": "AWS::EC2::Instance",
+      "Properties": {
+        "InstanceType": "t2.micro",
+        "IamInstanceProfile": {
+          "Ref": "BastionHostProfile"
+        },
+        "KeyName": {
+          "Ref": "BastionHostKeyPair"
+        },
+        "SubnetId": {
+          "Ref": "PublicSubnet"
+        },
+        "SecurityGroupIds": [
+          {
+            "Ref": "BastionHostSecurityGroup"
+          }
+        ],
+        "ImageId": {
+          "Fn::FindInMap": [
+            "Region",
+            {
+              "Ref": "AWS::Region"
+            },
+            "HVM64"
+          ]
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "Bastion host"
+          }
+        ],
+        "UserData": {
+          "Fn::Base64": {
+            "Fn::Join": [
+              "",
+              [
+                "#!/bin/bash -x\n",
+                "yum -y update --security\n",
+                "\n",
+                "##########################\n",
+                "## ENABLE SSH RECORDING ##\n",
+                "##########################\n",
+                "\n",
+                "# Create a new folder for the log files\n",
+                "mkdir /var/log/bastion\n",
+                "\n",
+                "# Allow ec2-user only to access this folder and its content\n",
+                "chown ec2-user:ec2-user /var/log/bastion\n",
+                "chmod -R 770 /var/log/bastion\n",
+                "setfacl -Rdm other:0 /var/log/bastion\n",
+                "\n",
+                "# Make OpenSSH execute a custom script on logins\n",
+                "echo -e \"\\nForceCommand /usr/bin/bastion/shell\" >> /etc/ssh/sshd_config\n",
+                "\n",
+                "# Block some SSH features that bastion host users could use to circumvent the solution\n",
+                "awk '!/AllowTcpForwarding/' /etc/ssh/sshd_config > temp && mv temp /etc/ssh/sshd_config\n",
+                "awk '!/X11Forwarding/' /etc/ssh/sshd_config > temp && mv temp /etc/ssh/sshd_config\n",
+                "echo \"AllowTcpForwarding no\" >> /etc/ssh/sshd_config\n",
+                "echo \"X11Forwarding no\" >> /etc/ssh/sshd_config\n",
+                "\n",
+                "mkdir /usr/bin/bastion\n",
+                "\n",
+                "cat > /usr/bin/bastion/shell << 'EOF'\n",
+                "\n",
+                "# Check that the SSH client did not supply a command\n",
+                "if [[ -z $SSH_ORIGINAL_COMMAND ]]; then\n",
+                "\n",
+                "  # The format of log files is /var/log/bastion/YYYY-MM-DD_HH-MM-SS_user\n",
+                "  LOG_FILE=\"`date --date=\"today\" \"+%Y-%m-%d_%H-%M-%S\"`_`whoami`\"\n",
+                "  LOG_DIR=\"/var/log/bastion/\"\n",
+                "\n",
+                "  # Print a welcome message\n",
+                "  echo \"\"\n",
+                "  echo \"NOTE: This SSH session will be recorded\"\n",
+                "  echo \"AUDIT KEY: $LOG_FILE\"\n",
+                "  echo \"\"\n",
+                "\n",
+                "  # I suffix the log file name with a random string. I explain why later on.\n",
+                "  SUFFIX=`mktemp -u _XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX`\n",
+                "\n",
+                "  # Wrap an interactive shell into \"script\" to record the SSH session\n",
+                "  script -qf --timing=$LOG_DIR$LOG_FILE$SUFFIX.time $LOG_DIR$LOG_FILE$SUFFIX.data --command=/bin/bash\n",
+                "\n",
+                "else\n",
+                "\n",
+                "  # The \"script\" program could be circumvented with some commands (e.g. bash, nc).\n",
+                "  # Therefore, I intentionally prevent users from supplying commands.\n",
+                "\n",
+                "  echo \"This bastion supports interactive sessions only. Do not supply a command\"\n",
+                "  exit 1\n",
+                "\n",
+                "fi\n",
+                "\n",
+                "EOF\n",
+                "\n",
+                "# Make the custom script executable\n",
+                "chmod a+x /usr/bin/bastion/shell\n",
+                "\n",
+                "# Bastion host users could overwrite and tamper with an existing log file using \"script\" if\n",
+                "# they knew the exact file name. I take several measures to obfuscate the file name:\n",
+                "# 1. Add a random suffix to the log file name.\n",
+                "# 2. Prevent bastion host users from listing the folder containing log files. This is done\n",
+                "#    by changing the group owner of \"script\" and setting GID.\n",
+                "chown root:ec2-user /usr/bin/script\n",
+                "chmod g+s /usr/bin/script\n",
+                "\n",
+                "# 3. Prevent bastion host users from viewing processes owned by other users, because the log\n",
+                "#    file name is one of the \"script\" execution parameters.\n",
+                "mount -o remount,rw,hidepid=2 /proc\n",
+                "awk '!/proc/' /etc/fstab > temp && mv temp /etc/fstab\n",
+                "echo \"proc /proc proc defaults,hidepid=2 0 0\" >> /etc/fstab\n",
+                "\n",
+                "# Restart the SSH service to apply /etc/ssh/sshd_config modifications.\n",
+                "service sshd restart\n",
+                "\n",
+                "############################\n",
+                "## EXPORT LOG FILES TO S3 ##\n",
+                "############################\n",
+                "\n",
+                "cat > /usr/bin/bastion/sync_s3 << 'EOF'\n",
+                "\n",
+                "# Copy log files to S3 with server-side encryption enabled.\n",
+                "# Then, if successful, delete log files that are older than a day.\n",
+                "LOG_DIR=\"/var/log/bastion/\"\n",
+                "aws s3 cp $LOG_DIR s3://",
+                {
+                  "Ref": "Bucket"
+                },
+                "/logs/ --sse --region ",
+                {
+                  "Ref": "AWS::Region"
+                },
+                " --recursive && find $LOG_DIR* -mtime +1 -exec rm {} \\;\n",
+                "\n",
+                "EOF\n",
+                "\n",
+                "chmod 700 /usr/bin/bastion/sync_s3\n",
+                "\n",
+                "#######################################\n",
+                "## SYNCHRONIZE USERS AND PUBLIC KEYS ##\n",
+                "#######################################\n",
+                "\n",
+                "# Bastion host users should log in to the bastion host with their personal SSH key pair.\n",
+                "# The public keys are stored on S3 with the following naming convention: \"username.pub\".\n",
+                "# This script retrieves the public keys, creates or deletes local user accounts as needed,\n",
+                "# and copies the public key to /home/username/.ssh/authorized_keys\n",
+                "\n",
+                "cat > /usr/bin/bastion/sync_users << 'EOF'\n",
+                "\n",
+                "# The file will log user changes\n",
+                "LOG_FILE=\"/var/log/bastion/users_changelog.txt\"\n",
+                "\n",
+                "# The function returns the user name from the public key file name.\n",
+                "# Example: public-keys/sshuser.pub => sshuser\n",
+                "get_user_name () {\n",
+                "  echo \"$1\" | sed -e 's/.*\\///g' | sed -e 's/\\.pub//g'\n",
+                "}\n",
+                "\n",
+                "# For each public key available in the S3 bucket\n",
+                "aws s3api list-objects --bucket ",
+                {
+                  "Ref": "Bucket"
+                },
+                " --prefix public-keys/ --region ",
+                {
+                  "Ref": "AWS::Region"
+                },
+                " --output text --query 'Contents[?Size>`0`].Key' | sed -e 'y/\\t/\\n/' > ~/keys_retrieved_from_s3\n",
+                "while read line; do\n",
+                "  USER_NAME=\"`get_user_name \"$line\"`\"\n",
+                "\n",
+                "  # Make sure the user name is alphanumeric\n",
+                "  if [[ \"$USER_NAME\" =~ ^[a-z][-a-z0-9]*$ ]]; then\n",
+                "\n",
+                "    # Create a user account if it does not already exist\n",
+                "    cut -d: -f1 /etc/passwd | grep -qx $USER_NAME\n",
+                "    if [ $? -eq 1 ]; then\n",
+                "      /usr/sbin/adduser $USER_NAME && \\\n",
+                "      mkdir -m 700 /home/$USER_NAME/.ssh && \\\n",
+                "      chown $USER_NAME:$USER_NAME /home/$USER_NAME/.ssh && \\\n",
+                "      echo \"$line\" >> ~/keys_installed && \\\n",
+                "      echo \"`date --date=\"today\" \"+%Y-%m-%d %H-%M-%S\"`: Creating user account for $USER_NAME ($line)\" >> $LOG_FILE\n",
+                "    fi\n",
+                "\n",
+                "    # Copy the public key from S3, if an user account was created from this key\n",
+                "    if [ -f ~/keys_installed ]; then\n",
+                "      grep -qx \"$line\" ~/keys_installed\n",
+                "      if [ $? -eq 0 ]; then\n",
+                "        aws s3 cp s3://",
+                {
+                  "Ref": "Bucket"
+                },
+                "/$line /home/$USER_NAME/.ssh/authorized_keys --region ",
+                {
+                  "Ref": "AWS::Region"
+                },
+                "\n",
+                "        chmod 600 /home/$USER_NAME/.ssh/authorized_keys\n",
+                "        chown $USER_NAME:$USER_NAME /home/$USER_NAME/.ssh/authorized_keys\n",
+                "      fi\n",
+                "    fi\n",
+                "\n",
+                "  fi\n",
+                "done < ~/keys_retrieved_from_s3\n",
+                "\n",
+                "# Remove user accounts whose public key was deleted from S3\n",
+                "if [ -f ~/keys_installed ]; then\n",
+                "  sort -uo ~/keys_installed ~/keys_installed\n",
+                "  sort -uo ~/keys_retrieved_from_s3 ~/keys_retrieved_from_s3\n",
+                "  comm -13 ~/keys_retrieved_from_s3 ~/keys_installed | sed \"s/\\t//g\" > ~/keys_to_remove\n",
+                "  while read line; do\n",
+                "    USER_NAME=\"`get_user_name \"$line\"`\"\n",
+                "    echo \"`date --date=\"today\" \"+%Y-%m-%d %H-%M-%S\"`: Removing user account for $USER_NAME ($line)\" >> $LOG_FILE\n",
+                "    /usr/sbin/userdel -r -f $USER_NAME\n",
+                "  done < ~/keys_to_remove\n",
+                "  comm -3 ~/keys_installed ~/keys_to_remove | sed \"s/\\t//g\" > ~/tmp && mv ~/tmp ~/keys_installed\n",
+                "fi\n",
+                "\n",
+                "EOF\n",
+                "\n",
+                "chmod 700 /usr/bin/bastion/sync_users\n",
+                "\n",
+                "###########################################\n",
+                "## SCHEDULE SCRIPTS AND SECURITY UPDATES ##\n",
+                "###########################################\n",
+                "\n",
+                "cat > ~/mycron << EOF\n",
+                "*/5 * * * * /usr/bin/bastion/sync_s3\n",
+                "*/5 * * * * /usr/bin/bastion/sync_users\n",
+                "0 0 * * * yum -y update --security\n",
+                "EOF\n",
+                "crontab ~/mycron\n",
+                "rm ~/mycron\n",
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "/opt/aws/bin/cfn-signal -e 0 --stack ",
+                      {
+                        "Ref": "AWS::StackName"
+                      },
+                      " --resource BastionHostInstance --region ",
+                      {
+                        "Ref": "AWS::Region"
+                      }
+                    ]
+                  ]
+                },
+                "\n"
+              ]
+            ]
+          }
+        }
+      },
+      "CreationPolicy": {
+        "ResourceSignal": {
+          "Timeout": "PT10M"
+        }
+      },
+      "Metadata": {
+        "AWS::CloudFormation::Designer": {
+          "id": "d0ceb450-fc29-45cd-a541-6ca8ec6448f1"
+        }
+      }
+    },
+    "LinuxInstanceSecurityGroup": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties": {
+        "GroupDescription": "Enable SSH access to the Linux instance from the bastion via port 22",
+        "VpcId": {
+          "Ref": "VPC"
+        },
+        "SecurityGroupIngress": [
+          {
+            "IpProtocol": "tcp",
+            "FromPort": "22",
+            "ToPort": "22",
+            "SourceSecurityGroupId": {
+              "Ref": "BastionHostSecurityGroup"
+            }
+          }
+        ]
+      },
+      "Metadata": {
+        "AWS::CloudFormation::Designer": {
+          "id": "350ccf58-bfc6-477a-b243-79a201190f65"
+        }
+      }
+    },
+    "LinuxInstance": {
+      "Type": "AWS::EC2::Instance",
+      "Properties": {
+        "InstanceType": "t2.micro",
+        "KeyName": {
+          "Ref": "LinuxInstanceKeyPair"
+        },
+        "SubnetId": {
+          "Ref": "PrivateSubnet"
+        },
+        "SecurityGroupIds": [
+          {
+            "Ref": "LinuxInstanceSecurityGroup"
+          }
+        ],
+        "ImageId": {
+          "Fn::FindInMap": [
+            "Region",
+            {
+              "Ref": "AWS::Region"
+            },
+            "LTS1604"
+          ]
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "Linux instance"
+          }
+        ]
+      },
+      "Metadata": {
+        "AWS::CloudFormation::Designer": {
+          "id": "d35d2b3a-b319-480c-a87b-87cf83e386b0"
+        }
+      }
+    }
+  },
+  "Outputs": {
+    "BucketName": {
+      "Description": "Name of the bucket",
+      "Value": {
+        "Ref": "Bucket"
+      }
+    },
+    "BastionHostPublicIP": {
+      "Description": "Public IP address of the bastion host",
+      "Value": {
+        "Fn::GetAtt": [
+          "BastionHostInstance",
+          "PublicIp"
+        ]
+      }
+    },
+    "LinuxInstancePrivateIP": {
+      "Description": "Private IP address of the Linux instance",
+      "Value": {
+        "Fn::GetAtt": [
+          "LinuxInstance",
+          "PrivateIp"
+        ]
+      }
+    }
+  },
+  "Metadata": {
+    "AWS::CloudFormation::Designer": {
+      "6139dfb7-8a0d-40e3-a8b4-d044e895c26f": {
+        "size": {
+          "width": 60,
+          "height": 60
+        },
+        "position": {
+          "x": 810,
+          "y": 90
+        },
+        "z": 1,
+        "embeds": []
+      },
+      "1b664064-e2d9-42a5-a4a0-586e0f16cbc0": {
+        "size": {
+          "width": 60,
+          "height": 60
+        },
+        "position": {
+          "x": 810,
+          "y": 210
+        },
+        "z": 1,
+        "embeds": [],
+        "isrelatedto": [
+          "6139dfb7-8a0d-40e3-a8b4-d044e895c26f"
+        ]
+      },
+      "23c8ebee-8bd2-4850-9360-9c7abc92057e": {
+        "size": {
+          "width": 60,
+          "height": 60
+        },
+        "position": {
+          "x": 810,
+          "y": 330
+        },
+        "z": 1,
+        "embeds": [],
+        "isassociatedwith": [
+          "1b664064-e2d9-42a5-a4a0-586e0f16cbc0"
+        ]
+      },
+      "1648c0ed-4ad3-43ab-a79d-2daacec007dd": {
+        "size": {
+          "width": 60,
+          "height": 60
+        },
+        "position": {
+          "x": 810,
+          "y": 450
+        },
+        "z": 1,
+        "embeds": []
+      },
+      "56883a1b-842d-414b-b3dc-d62b9cce5f13": {
+        "size": {
+          "width": 690,
+          "height": 690
+        },
+        "position": {
+          "x": 60,
+          "y": 90
+        },
+        "z": 1,
+        "embeds": [
+          "d0d034a6-2fab-4e2f-8885-87993ac5ce66",
+          "350ccf58-bfc6-477a-b243-79a201190f65",
+          "d79b67f7-8e38-410d-8cc6-63e36b8872d9",
+          "e18e6f98-ce31-4a98-b88b-12ed274c10df",
+          "ba64b472-f58f-43dd-9c19-d039393e4ca6"
+        ]
+      },
+      "d0d034a6-2fab-4e2f-8885-87993ac5ce66": {
+        "size": {
+          "width": 60,
+          "height": 60
+        },
+        "position": {
+          "x": 390,
+          "y": 450
+        },
+        "z": 2,
+        "parent": "56883a1b-842d-414b-b3dc-d62b9cce5f13",
+        "embeds": []
+      },
+      "350ccf58-bfc6-477a-b243-79a201190f65": {
+        "size": {
+          "width": 60,
+          "height": 60
+        },
+        "position": {
+          "x": 510,
+          "y": 450
+        },
+        "z": 2,
+        "parent": "56883a1b-842d-414b-b3dc-d62b9cce5f13",
+        "embeds": [],
+        "isrelatedto": [
+          "d0d034a6-2fab-4e2f-8885-87993ac5ce66"
+        ]
+      },
+      "d79b67f7-8e38-410d-8cc6-63e36b8872d9": {
+        "size": {
+          "width": 240,
+          "height": 240
+        },
+        "position": {
+          "x": 110,
+          "y": 480
+        },
+        "z": 2,
+        "parent": "56883a1b-842d-414b-b3dc-d62b9cce5f13",
+        "embeds": [
+          "d35d2b3a-b319-480c-a87b-87cf83e386b0"
+        ]
+      },
+      "d35d2b3a-b319-480c-a87b-87cf83e386b0": {
+        "size": {
+          "width": 60,
+          "height": 60
+        },
+        "position": {
+          "x": 140,
+          "y": 540
+        },
+        "z": 3,
+        "parent": "d79b67f7-8e38-410d-8cc6-63e36b8872d9",
+        "embeds": [],
+        "ismemberof": [
+          "350ccf58-bfc6-477a-b243-79a201190f65"
+        ]
+      },
+      "e18e6f98-ce31-4a98-b88b-12ed274c10df": {
+        "size": {
+          "width": 240,
+          "height": 240
+        },
+        "position": {
+          "x": 390,
+          "y": 150
+        },
+        "z": 2,
+        "parent": "56883a1b-842d-414b-b3dc-d62b9cce5f13",
+        "embeds": [
+          "4b8a0a8b-7a53-4048-86e3-de09e94a61fe"
+        ]
+      },
+      "4b8a0a8b-7a53-4048-86e3-de09e94a61fe": {
+        "size": {
+          "width": 60,
+          "height": 60
+        },
+        "position": {
+          "x": 420,
+          "y": 210
+        },
+        "z": 3,
+        "parent": "e18e6f98-ce31-4a98-b88b-12ed274c10df",
+        "embeds": [],
+        "references": [
+          "1648c0ed-4ad3-43ab-a79d-2daacec007dd"
+        ]
+      },
+      "ba64b472-f58f-43dd-9c19-d039393e4ca6": {
+        "size": {
+          "width": 240,
+          "height": 240
+        },
+        "position": {
+          "x": 90,
+          "y": 150
+        },
+        "z": 2,
+        "parent": "56883a1b-842d-414b-b3dc-d62b9cce5f13",
+        "embeds": [
+          "d0ceb450-fc29-45cd-a541-6ca8ec6448f1"
+        ]
+      },
+      "d0ceb450-fc29-45cd-a541-6ca8ec6448f1": {
+        "size": {
+          "width": 60,
+          "height": 60
+        },
+        "position": {
+          "x": 120,
+          "y": 210
+        },
+        "z": 3,
+        "parent": "ba64b472-f58f-43dd-9c19-d039393e4ca6",
+        "embeds": [],
+        "ismemberof": [
+          "d0d034a6-2fab-4e2f-8885-87993ac5ce66"
+        ],
+        "isrelatedto": [
+          "23c8ebee-8bd2-4850-9360-9c7abc92057e",
+          "6139dfb7-8a0d-40e3-a8b4-d044e895c26f"
+        ]
+      },
+      "7cf34123-5c36-424b-83c1-2bb10af62eb9": {
+        "source": {
+          "id": "e18e6f98-ce31-4a98-b88b-12ed274c10df"
+        },
+        "target": {
+          "id": "ba64b472-f58f-43dd-9c19-d039393e4ca6"
+        }
+      },
+      "a62241d6-ef0b-4920-94e7-750418ebf25e": {
+        "source": {
+          "id": "1648c0ed-4ad3-43ab-a79d-2daacec007dd"
+        },
+        "target": {
+          "id": "56883a1b-842d-414b-b3dc-d62b9cce5f13"
+        }
+      }
+    }
+  }
+}
