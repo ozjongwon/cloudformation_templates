@@ -112,15 +112,6 @@
       "MaxLength": "18",
       "AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})"
     },
-    "RemoteAccessNetwork": {
-      "Description": "Source Network IP CIDR Block such as an Office that can access instances say over VPN. (i.e. 192.168.100.0/24)",
-      "Type": "String",
-      "MinLength": "9",
-      "MaxLength": "18",
-      "Default": "0.0.0.0/0",
-      "AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})",
-      "ConstraintDescription": "must be a valid CIDR range of the form x.x.x.x/x."
-    },
     "AllowHttpToPublicRuleNumber": {
       "Description": "Enter Public Network ACL Rule Number to Allow HTTP From Internet to Public Network.",
       "Type": "Number",
@@ -165,15 +156,6 @@
         "false"
       ]
     },
-    "SetupVpn": {
-      "Description": "Setup Site-to-Site VPN Connection?",
-      "Type": "String",
-      "Default": "false",
-      "AllowedValues": [
-        "true",
-        "false"
-      ]
-    },
     "SetupBastion": {
       "Description": "Setup Bastion Host?",
       "Type": "String",
@@ -195,11 +177,6 @@
       "Description": "Enter Public Network ACL Rule Number to Allow SSH/RDP Access to EIP from Network Access IP.",
       "Type": "Number",
       "Default": "200"
-    },
-    "AllowIcmpToBastionRuleNumber": {
-      "Description": "Enter Public Network ACL Rule Number to Allow SSH/RDP Access to EIP from Network Access IP.",
-      "Type": "Number",
-      "Default": "205"
     },
     "Ec2KeyPair": {
       "Description": "Select Keypair to Assign to EC2 Instances",
@@ -266,15 +243,6 @@
       ],
       "ConstraintDescription": "Must be a valid EC2 instance type."
     },
-    "RemoteVpnDeviceIp": {
-      "Description": "Enter External IP Address of the Customer VPN Device.",
-      "Type": "String",
-      "MinLength": "7",
-      "MaxLength": "12",
-      "Default": "0.0.0.0",
-      "AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})",
-      "ConstraintDescription": "Must be a valid IP Address x.x.x.x"
-    },
     "RemoteNetworkCidr": {
       "Description": "Enter Remote Network IP Range CIDR (i.e. 192.168.100.0/24).",
       "Type": "String",
@@ -282,15 +250,6 @@
       "MaxLength": "18",
       "Default": "0.0.0.0/0",
       "AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})",
-      "ConstraintDescription": "Must be a valid CIDR range of the form x.x.x.x/x."
-    },
-    "RemoteBgpAsn": {
-      "Description": "Enter Remote VPN Device BGP ASN.",
-      "Type": "String",
-      "MinLength": "4",
-      "MaxLength": "5",
-      "Default": "65000",
-      "AllowedPattern": "(\\d{4,5})",
       "ConstraintDescription": "Must be a valid CIDR range of the form x.x.x.x/x."
     },
     "IncludePublicSubnets": {
@@ -315,7 +274,6 @@
   },
   "Conditions": {
     "ConfigNAT": { "Fn::Equals": [{"Ref": "SetupNatGateway"}, "true"]},
-    "ConfigVPN": { "Fn::Equals": [{"Ref": "SetupVpn"}, "true"]},
     "ConfigBastion": { "Fn::Equals": [{"Ref": "SetupBastion"}, "true"]}
   },
   "Resources": {
@@ -338,7 +296,6 @@
           "PrivateSubnetCidrBlock1" : {"Ref": "PrivateSubnetCidrBlock1"},
           "PrivateSubnetCidrBlock2" : {"Ref": "PrivateSubnetCidrBlock2"},
           "PrivateSubnetCidrBlock3" : {"Ref": "PrivateSubnetCidrBlock3"},
-          "RemoteAccessNetwork" : {"Ref": "RemoteAccessNetwork"},
           "AllowHttpToPublicRuleNumber" : {"Ref": "AllowHttpToPublicRuleNumber"},
           "AllowHttpsToPublicRuleNumber" : {"Ref": "AllowHttpsToPublicRuleNumber"},
           "AllowReturnTrafficToPublicRuleNumber" : {"Ref": "AllowReturnTrafficToPublicRuleNumber"},
@@ -367,31 +324,6 @@
         }
       }
     },
-    "vpn":{
-      "Condition": "ConfigVPN",
-      "DependsOn": ["vpc"],
-      "Type":"AWS::CloudFormation::Stack",
-      "Properties":{
-        "TemplateURL":"https://s3-ap-southeast-2.amazonaws.com/jc-cft/infrastructure/vpn-bgp.template",
-        "TimeoutInMinutes":"15",
-        "Parameters" : {
-          "Owner" : {"Ref": "Owner"},
-          "Project" : {"Ref": "Project"},
-          "DeleteAfter" : {"Ref": "DeleteAfter"},
-          "VPC" : {"Fn::GetAtt":["vpc", "Outputs.VPC"]},
-          "PublicRouteTable" : {"Fn::GetAtt":["vpc", "Outputs.PublicRouteTable"]},
-          "PrivateRouteTable" : {"Fn::GetAtt":["vpc", "Outputs.PrivateRouteTable"]},
-          "PublicNetworkAcl" : {"Fn::GetAtt":["vpc", "Outputs.PublicNetworkAcl"]},
-          "PrivateNetworkAcl" : {"Fn::GetAtt":["vpc", "Outputs.PrivateNetworkAcl"]},
-          "RemoteVpnDeviceIp" : {"Ref": "RemoteVpnDeviceIp"},
-          "RemoteNetworkCidr" : {"Ref": "RemoteNetworkCidr"},
-          "RemoteBgpAsn" : {"Ref": "RemoteBgpAsn"},
-          "IncludePublicSubnets" : {"Ref": "IncludePublicSubnets"},
-          "AllowOfficeNetworktoPublicRuleNumber" : {"Ref": "AllowOfficeNetworktoPublicRuleNumber"},
-          "AllowOfficeNetworktoPrivateRuleNumber" : {"Ref": "AllowOfficeNetworktoPrivateRuleNumber"}
-        }
-      }
-    },
     "bastion":{
       "Condition": "ConfigBastion",
       "DependsOn": [
@@ -410,9 +342,7 @@
           "PublicNetworkAcl" : {"Fn::GetAtt":["vpc", "Outputs.PublicNetworkAcl"]},
           "InternalAccessSecurityGroup" : {"Fn::GetAtt":["vpc", "Outputs.InternalAccessSecurityGroup"]},
           "OsType" : {"Ref": "BastionOsType"},
-          "NetworkAccessIP" : {"Ref": "RemoteAccessNetwork"},
           "AllowSshRdpToBastionRuleNumber" : {"Ref": "AllowSshRdpToBastionRuleNumber"},
-          "AllowIcmpToBastionRuleNumber" : {"Ref": "AllowIcmpToBastionRuleNumber"},
           "Ec2KeyPair" : {"Ref": "Ec2KeyPair"},
           "InstanceType" : {"Ref": "BastionInstanceType"}
         }
@@ -541,11 +471,6 @@
       "Value": {"Fn::GetAtt":[
         "vpc", "Outputs.InternalAccessSecurityGroup"]}
     },
-    "RemoteAccessSecurityGroup": {
-      "Description": "Remote Network or IP that can Access the instances of VPN or Direct Connect.",
-      "Value": {"Fn::GetAtt":[
-        "vpc", "Outputs.RemoteAccessSecurityGroup"]}
-    },
     "PublicNetworkACLRuleNumbers": {
       "Description": "Public Network ACL Rules Numbers Created.",
       "Value": {
@@ -589,19 +514,7 @@
           "Label" : { "default" : "Infrastructure Options" },
           "Parameters" : [
             "SetupNatGateway",
-            "SetupVpn",
             "SetupBastion"
-          ]
-        },
-        {
-          "Label" : { "default" : "VPN Settings (Optional)" },
-          "Parameters" : [
-            "RemoteVpnDeviceIp",
-            "RemoteNetworkCidr",
-            "RemoteBgpAsn",
-            "IncludePublicSubnets",
-            "AllowOfficeNetworktoPublicRuleNumber",
-            "AllowOfficeNetworktoPrivateRuleNumber"
           ]
         },
         {
@@ -610,13 +523,8 @@
             "BastionOsType",
             "Ec2KeyPair",
             "AllowSshRdpToBastionRuleNumber",
-            "AllowIcmpToBastionRuleNumber",
             "BastionInstanceType"
           ]
-        },
-        {
-          "Label" : { "default" : "Remote Configurations" },
-          "Parameters" : [ "RemoteAccessNetwork" ]
         },
         {
           "Label" : { "default" : "AWS Network Configurations" },

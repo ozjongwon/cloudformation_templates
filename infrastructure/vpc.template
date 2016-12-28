@@ -112,15 +112,6 @@
       "MaxLength": "18",
       "AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})"
     },
-    "RemoteAccessNetwork": {
-      "Description": "Source Network IP CIDR Block such as an Office that can access instances say over VPN. (i.e. 192.168.100.0/24)",
-      "Type": "String",
-      "MinLength": "9",
-      "MaxLength": "18",
-      "Default": "0.0.0.0/0",
-      "AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})",
-      "ConstraintDescription": "must be a valid CIDR range of the form x.x.x.x/x."
-    },
     "AllowHttpToPublicRuleNumber": {
       "Description": "Enter Public Network ACL Rule Number to Allow HTTP From Internet to Public Network.",
       "Type": "Number",
@@ -795,43 +786,6 @@
           "Ref": "InternalAccessSecurityGroup"
         }
       }
-    },
-    "RemoteAccessSecurityGroup": {
-      "Type": "AWS::EC2::SecurityGroup",
-      "Properties": {
-        "GroupDescription": "Instance Access over VPN/Direct Connect",
-        "VpcId": {"Ref": "VPC"},
-        "Tags": [
-          {
-            "Key": "Name",
-            "Value": {"Fn::Join": ["", [{"Ref": "AWS::StackName"}, "-remote-to-instance"]]}
-          },
-          {
-            "Key": "Owner",
-            "Value": {"Ref": "Owner"}
-          },
-          {
-            "Key": "Project",
-            "Value": {"Ref": "Project"}
-          },
-          {
-            "Key": "DeleteAfter",
-            "Value": {"Ref": "DeleteAfter"}
-          }
-        ],
-        "SecurityGroupIngress": [
-          {
-            "IpProtocol": "-1",
-            "CidrIp": {"Ref": "RemoteAccessNetwork"}
-          }
-        ],
-        "SecurityGroupEgress": [
-          {
-            "IpProtocol": "-1",
-            "CidrIp": "0.0.0.0/0"
-          }
-        ]
-      }
     }
   },
   "Outputs": {
@@ -939,10 +893,6 @@
       "Description": "Instance to Instance Access within VPC",
       "Value": {"Ref": "InternalAccessSecurityGroup"}
     },
-    "RemoteAccessSecurityGroup": {
-      "Description": "Remote Network or IP that can Access the instances of VPN or Direct Connect.",
-      "Value": {"Ref": "RemoteAccessSecurityGroup"}
-    },
     "PublicNetworkACLRuleNumbers": {
       "Description": "Public Network ACL Rules Numbers Created.",
       "Value": {
@@ -981,10 +931,6 @@
         {
           "Label" : { "default" : "Ownership" },
           "Parameters" : [ "Owner", "Project", "DeleteAfter" ]
-        },
-        {
-          "Label" : { "default" : "Remote Configurations" },
-          "Parameters" : [ "RemoteAccessNetwork" ]
         },
         {
           "Label" : { "default" : "AWS Network Configurations" },

@@ -60,11 +60,6 @@
       "Type": "Number",
       "Default": "200"
     },
-    "AllowIcmpToBastionRuleNumber": {
-      "Description": "Enter Public Network ACL Rule Number to Allow SSH/RDP Access to EIP from Network Access IP.",
-      "Type": "Number",
-      "Default": "205"
-    },
     "InstanceType": {
       "Description": "Select Instance Type.",
       "Type": "String",
@@ -214,12 +209,6 @@
             "FromPort": {"Fn::If": ["LinuxHost", "22", "3389"]},
             "ToPort": {"Fn::If": ["LinuxHost", "22", "3389"]},
             "CidrIp": {"Ref": "NetworkAccessIP"}
-          },
-          {
-            "IpProtocol": "icmp",
-            "FromPort": "-1",
-            "ToPort": "-1",
-            "CidrIp": {"Ref": "NetworkAccessIP"}
           }
         ],
         "SecurityGroupEgress": [
@@ -337,25 +326,6 @@
           "To": {"Fn::If": ["LinuxHost", "22", "3389"]}
         }
       }
-    },
-    "InboundPublicNetworkAclEntryIcmp": {
-      "Type": "AWS::EC2::NetworkAclEntry",
-      "Properties": {
-        "NetworkAclId": {"Ref": "PublicNetworkAcl"},
-        "RuleNumber": {"Ref": "AllowIcmpToBastionRuleNumber"},
-        "Protocol": "1",
-        "RuleAction": "allow",
-        "Egress": "false",
-        "CidrBlock": {"Ref": "NetworkAccessIP"},
-        "Icmp": {
-          "Code": "-1",
-          "Type": "-1"
-        },
-        "PortRange": {
-          "From": "-1",
-          "To": "-1"
-        }
-      }
     }
   },
   "Outputs": {
@@ -436,8 +406,7 @@
         {
           "Label" : { "default" : "Network ACL Rule Numbers" },
           "Parameters" : [
-            "AllowSshRdpToBastionRuleNumber",
-            "AllowIcmpToBastionRuleNumber"
+            "AllowSshRdpToBastionRuleNumber"
           ]
         }
       ],
@@ -450,7 +419,6 @@
         "NetworkAccessIP" : { "default" : "Network IP to Access Bastion Host" },
         "OsType" : { "default" : "OS Type" },
         "AllowSshRdpToBastionRuleNumber" : { "default" : "Remote to Public SSH/RDP" },
-        "AllowIcmpToBastionRuleNumber" : { "default" : "Remote to Public ICMP" },
         "InstanceType" : { "default" : "Instance Type" }
       }
     }
