@@ -1,6 +1,6 @@
 {
   "AWSTemplateFormatVersion": "2010-09-09",
-  "Description": "Bastion Host by Levon Becker v20160504-1500",
+  "Description": "Bastion Host",
   "Parameters": {
     "Ec2KeyPair": {
       "Description": "Select Keypair to Assign to EC2 Instances",
@@ -41,11 +41,9 @@
     "OsType": {
       "Description": "Select OS Type for Bastion Host.",
       "Type": "String",
-      "Default": "rhel",
+      "Default": "ubuntu",
       "AllowedValues": [
-        "rhel",
-        "ubuntu",
-        "windows"
+        "ubuntu"
       ]
     },
     "NetworkAccessIP": {
@@ -131,40 +129,21 @@
   },
   "Mappings": {
     "RegionMap": {
-      "us-west-2": {
-        "AMIRHEL7": "ami-775e4f16",
-        "AMIUbuntu14": "ami-9abea4fb",
-        "AMIWin2012": "ami-1719f677"
-      },
-      "us-east-1": {
-        "AMIRHEL7": "ami-2051294a",
-        "AMIUbuntu14": "ami-fce3c696",
-        "AMIWin2012": "ami-3d787d57"
+      "ap-southeast-2": {
+        "AMIUbuntu16": "ami-ae6259cd"
       }
     },
     "bootstrap": {
-      "rhel": {
-        "warmebs": "echo 'ACTION: Performing EBS Warming' && dd if=/dev/xvda of=/dev/xvda conv=notrunc bs=1M status=progress",
-        "yumupdatenokernel": "yum update -y --exclude=kernel*",
-        "installpackages": "yum install -y curl wget mlocate ca-certificates openssl vim",
-        "installchefdk": "yum install -y https://packages.chef.io/stable/el/7/chefdk-0.12.0-1.el7.x86_64.rpm",
-        "installbastionpackages": "yum install -y git wireshark nmap mysql"
-      },
       "ubuntu": {
         "warmebs": "echo 'ACTION: Performing EBS Warming' && dd if=/dev/xvda of=/dev/xvda conv=notrunc bs=1M status=progress",
-        "installpackages": "apt-get update && apt-get install curl wget cloud-utils ca-certificates vim",
-        "installbastionpackages": "apt-get install mysql openssl"
+        "installpackages": "apt-get update && apt-get install curl wget cloud-utils ca-certificates emacs-nox",
+        "installbastionpackages": "apt-get install openssl"
       }
     }
   },
   "Conditions": {
-    "RHELHost": { "Fn::Equals": [{"Ref": "OsType"}, "rhel"]},
     "UbuntuHost": { "Fn::Equals": [{"Ref": "OsType"}, "ubuntu"]},
-    "LinuxHost": { "Fn::Or": [
-        {"Fn::Equals": [{"Ref": "OsType"}, "rhel"]},
-        {"Fn::Equals": [{"Ref": "OsType"}, "ubuntu"]}
-      ]
-    },
+    "LinuxHost": {"Fn::Equals": [{"Ref": "OsType"}, "ubuntu"]},
     "WindowsHost": { "Fn::Equals": [ { "Ref": "OsType" }, "windows" ] }
   },
   "Resources": {
@@ -261,17 +240,9 @@
         "IamInstanceProfile": {"Ref": "IamInstanceProfile"},
         "ImageId": {
           "Fn::If": [
-            "RHELHost",
-            {"Fn::FindInMap": ["RegionMap",  {"Ref": "AWS::Region"}, "AMIRHEL7"]},
-            {"Fn::If": [
-              "UbuntuHost",
-              {"Fn::FindInMap": ["RegionMap",  {"Ref": "AWS::Region"}, "AMIUbuntu14"]},
-              {"Fn::If": [
-                "WindowsHost",
-                {"Fn::FindInMap": ["RegionMap",  {"Ref": "AWS::Region"}, "AMIWin2012"]},
-                "unknown"
-              ]}
-            ]}
+            "UbuntuHost",
+            {"Fn::FindInMap": ["RegionMap",  {"Ref": "AWS::Region"}, "AMIUbuntu16"]},
+            "unknown"
           ]
         },
         "InstanceInitiatedShutdownBehavior": "stop",
@@ -294,25 +265,6 @@
         ],
         "UserData": {
           "Fn::If": [
-            "RHELHost",
-              {"Fn::Base64": {
-                "Fn::Join": [
-                  "", [
-                    "#!/bin/bash\n",
-                    {"Fn::FindInMap": ["bootstrap", "rhel", "warmebs"]},
-                    "\n",
-                    {"Fn::FindInMap": ["bootstrap", "rhel", "yumupdatenokernel"]},
-                    "\n",
-                    {"Fn::FindInMap": ["bootstrap", "rhel", "installpackages"]},
-                    "\n",
-                    {"Fn::FindInMap": ["bootstrap", "rhel", "installbastionpackages"]},
-                    "\n",
-                    {"Fn::FindInMap": ["bootstrap", "rhel", "installchefdk"]},
-                    "\n"
-                  ]
-                ]
-              }},
-            {"Fn::If": [
               "UbuntuHost",
                 {"Fn::Base64": {
                   "Fn::Join": [
@@ -332,8 +284,7 @@
                   {"Fn::Base64": "# PowerShell Goes Here"},
                   {"Ref": "AWS::NoValue"}
               ]}
-            ]}
-          ]
+            ]
         },
         "Tags": [
           {

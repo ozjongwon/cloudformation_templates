@@ -117,7 +117,7 @@
       "Type": "String",
       "MinLength": "9",
       "MaxLength": "18",
-      "Default": "192.168.100.0/24",
+      "Default": "0.0.0.0/0",
       "AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})",
       "ConstraintDescription": "must be a valid CIDR range of the form x.x.x.x/x."
     },
@@ -186,11 +186,9 @@
     "BastionOsType": {
       "Description": "(Skip if Not setting up a Bastion Host) Select OS Type for Bastion Host.",
       "Type": "String",
-      "Default": "rhel",
+      "Default": "ubuntu",
       "AllowedValues": [
-        "rhel",
-        "ubuntu",
-        "windows"
+        "ubuntu"
       ]
     },
     "AllowSshRdpToBastionRuleNumber": {
@@ -210,7 +208,7 @@
     "BastionInstanceType": {
       "Description": "Select Instance Type.",
       "Type": "String",
-      "Default": "t2.small",
+      "Default": "t2.micro",
       "AllowedValues": [
         "t2.nano",
         "t2.micro",
@@ -280,9 +278,9 @@
     "RemoteNetworkCidr": {
       "Description": "Enter Remote Network IP Range CIDR (i.e. 192.168.100.0/24).",
       "Type": "String",
-      "MinLength": "11",
+      "MinLength": "9",
       "MaxLength": "18",
-      "Default": "192.168.100.0/24",
+      "Default": "0.0.0.0/0",
       "AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})",
       "ConstraintDescription": "Must be a valid CIDR range of the form x.x.x.x/x."
     },
@@ -324,7 +322,7 @@
     "vpc":{
       "Type":"AWS::CloudFormation::Stack",
       "Properties":{
-        "TemplateURL":"https://raw.githubusercontent.com/ozjongwon/cloudformation_templates/master/infrastructure/vpc.template",
+        "TemplateURL":"https://s3-ap-southeast-2.amazonaws.com/jc-cft/infrastructure/vpc.template",
         "TimeoutInMinutes":"15",
         "Parameters" : {
           "Owner" : {"Ref": "Owner"},
@@ -356,7 +354,7 @@
       "DependsOn": ["vpc"],
       "Type":"AWS::CloudFormation::Stack",
       "Properties":{
-        "TemplateURL":"https://raw.githubusercontent.com/ozjongwon/cloudformation_templates/master/infrastructure/nat-gateway.template",
+        "TemplateURL":"https://s3-ap-southeast-2.amazonaws.com/jc-cft/infrastructure/nat-gateway.template",
         "TimeoutInMinutes":"15",
         "Parameters" : {
           "Owner" : {"Ref": "Owner"},
@@ -374,7 +372,7 @@
       "DependsOn": ["vpc"],
       "Type":"AWS::CloudFormation::Stack",
       "Properties":{
-        "TemplateURL":"https://raw.githubusercontent.com/ozjongwon/cloudformation_templates/master/infrastructure/vpn-bgp.template",
+        "TemplateURL":"https://s3-ap-southeast-2.amazonaws.com/jc-cft/infrastructure/vpn-bgp.template",
         "TimeoutInMinutes":"15",
         "Parameters" : {
           "Owner" : {"Ref": "Owner"},
@@ -401,7 +399,7 @@
       ],
       "Type":"AWS::CloudFormation::Stack",
       "Properties":{
-        "TemplateURL":"https://raw.githubusercontent.com/ozjongwon/cloudformation_templates/master/infrastructure/bastion.template",
+        "TemplateURL":"https://s3-ap-southeast-2.amazonaws.com/jc-cft/infrastructure/bastion.template",
         "TimeoutInMinutes":"15",
         "Parameters" : {
           "Owner" : {"Ref": "Owner"},
